@@ -1,0 +1,689 @@
+# ex1 보기용 문서
+
+> 이 파일은 GitHub에서 안정적으로 읽기 위한 Markdown 버전입니다. 직접 실행하려면 [`src/ex1.ipynb`](../src/ex1.ipynb) 노트북을 사용하세요.
+
+# 실습 1: 텐서(Tensor) 기초
+이 실습에서는 텐서 생성, 조작, 인덱싱(indexing), 브로드캐스팅(broadcasting), 벡터화(vectorization), einsum, 그리고 어텐션 마스킹(attention masking)의 기초를 배웁니다. 이러한 기초는 향후 복잡한 구현을 이해하는 데 매우 중요하므로 확실하게 이해하고 넘어가시기 바랍니다.
+
+**본 실습을 완료하려면 아래 함수들의 모든 TODO 부분을 작성하세요.**
+
+함수의 출력을 확인하고, 함수 정의에 명시된 요구사항을 충족하는지 반드시 점검하세요. 노트북의 확인 셀과 후속 실습 코드가 여러분이 작성한 함수를 그대로 호출하므로, 함수의 시그니처(입력 매개변수)나 이름을 절대 변경하지 마십시오.
+
+### 본 노트북에서 사용되는 형태(Shape) 약어 정리
+- `B`: 배치 크기 (batch size)
+- `T`: 시퀀스 길이 / 시간 (sequence length / time)
+- `D`: 특징량 차원 (feature dimension)
+- `H`: 어텐션 헤드 수 (number of attention heads)
+- `Dh`: 헤드별 특징량 차원 (per-head feature dimension)
+
+### 디버깅 팁: 출력해야 할 정보
+형태 오류(shape error)가 발생하면 다음을 출력해 보세요:
+- `x.shape`, `x.dtype`, `x.device`
+- `x.is_contiguous()` (`view` 함수 사용 시 중요)
+마스크(mask)의 경우 다음도 함께 출력해 보세요:
+- `mask.shape`, `mask.dtype`, `mask.sum()` 및 `mask[0, :10]`과 같은 일부 슬라이스
+
+### 재현성 팁: PyTorch에서의 시드(Seed) 설정
+딥러닝의 많은 연산에는 무작위성(randomness)이 포함됩니다 (예: 모델 가중치 초기화, 데이터 셔플링, 드롭아웃(dropout), 무작위 데이터 증강 등).
+**시드 설정(Seeding)**은 PyTorch의 난수 생성기의 시작 상태를 고정하여 이러한 무작위 선택을 **재현 가능**하게 만듭니다.
+
+- 동일한 시드를 설정하고 동일한 코드를 다시 실행하면, 동일한 *무작위* 텐서 및 초기 가중치를 얻을 수 있습니다.
+- 시드를 설정하지 않으면 실행할 때마다 결과가 달라질 수 있습니다.
+
+일반적인 사용법: `torch.manual_seed(seed)`
+
+참고: 시드를 고정하더라도 성능 최적화로 인해 일부 GPU 연산은 여전히 비결정론적(non-deterministic)일 수 있습니다. 본 과제에서 시드 설정은 주로 디버깅을 용이하게 하고 모든 사람이 동일한 중간 결과를 재현할 수 있도록 하기 위함입니다. 시드가 제공되는 경우, 텐서를 생성하거나 다른 연산을 수행할 때 반드시 해당 시드를 사용하십시오.
+
+## 텐서 생성 (Tensor creation)
+이 웜업 실습에서는 다양한 형태와 값을 가진 텐서를 생성하는 방법을 배웁니다. 텐서 생성과 관련하여 알아두면 좋은 몇 가지 세부 사항은 다음과 같습니다:
+- `torch.tensor([...])`는 Python 값으로부터 데이터 타입(dtype)을 추론합니다 (정수 → 정수 텐서, 실수 → 실수 텐서).
+- `torch.arange(start, end)`는 **마지막 값(end)을 포함하지 않습니다**.
+- `torch.linspace(start, end, steps)`는 **마지막 값(end)을 포함합니다**.
+
+```python
+from collections.abc import Sequence
+import torch
+```
+
+```python
+def make_tensor(data, dtype: torch.dtype | None = None, device: torch.device | str | None = None) -> torch.Tensor:
+    """ Python 데이터(리스트/튜플/중첩 리스트)로부터 텐서를 생성합니다. """
+    # TODO: 구현하기
+    raise NotImplementedError
+
+x = make_tensor([[1, 2], [3, 4]], dtype=torch.float32)
+```
+
+```python
+def make_zeros(shape: Sequence[int], dtype: torch.dtype | None = None, device: torch.device | str | None = None) -> torch.Tensor:
+    """0으로 채워진 텐서를 생성합니다."""
+    # TODO: 구현하기
+    raise NotImplementedError
+
+z = make_zeros((2, 3), dtype=torch.float64)
+```
+
+```python
+def make_ones_like(x: torch.Tensor) -> torch.Tensor:
+    """x와 동일한 shape, dtype, device를 가진 1로 채워진 텐서를 생성합니다."""
+    # TODO: 구현하기
+    raise NotImplementedError
+
+base = torch.randn(2, 3, dtype=torch.float32)
+ones = make_ones_like(base)
+```
+
+```python
+def make_arange(start: int, end: int, step: int = 1, dtype: torch.dtype | None = None, device: torch.device | str | None = None) -> torch.Tensor:
+    """[start, start+step, ..., < end] 범위의 값을 포함하는 1차원 텐서를 생성합니다."""
+    # TODO: 구현하기
+    raise NotImplementedError
+
+ar = make_arange(0, 5, 2, dtype=torch.int64)
+```
+
+```python
+def make_linspace(start: float, end: float, steps: int, dtype: torch.dtype | None = None, device: torch.device | str | None = None) -> torch.Tensor:
+    """start부터 end까지(포함) 균일한 간격의 값을 가진 1D 텐서를 생성합니다."""
+    # TODO: 구현하기
+    raise NotImplementedError
+
+ls = make_linspace(0.0, 1.0, steps=5, dtype=torch.float32)
+```
+
+```python
+def make_randn(shape: Sequence[int], seed: int | None = None, dtype: torch.dtype | None = None, device: torch.device | str | None = None) -> torch.Tensor:
+    """표준정규분포의 값들로 채워진 텐서를 생성합니다."""
+    # TODO: 구현하기
+    raise NotImplementedError
+
+a = make_randn((2, 3), seed=123, dtype=torch.float32)
+```
+
+```python
+def cast_dtype_and_move(x: torch.Tensor, device: torch.device, dtype: torch.dtype) -> torch.Tensor:
+    """텐서의 dtype을 변환하고 디바이스로 이동합니다."""
+    # TODO: 구현하기
+    raise NotImplementedError
+
+casted = cast_dtype_and_move(torch.tensor([1, 2, 3]), torch.device("cpu"), torch.float32)
+```
+
+## 형태 조작 (Shape manipulation)
+기본적인 텐서 생성 방식을 살펴보았으니, 이제는 형태 조작에 집중해 보겠습니다. 이러한 메커니즘 간의 차이를 이해하는 것은 더 큰 시스템을 구축하는 데 핵심적이며, 여전히 많은 사람들이 이를 혼동하곤 합니다.
+이해해야 할 핵심 개념은 다음과 같습니다:
+- **연속적 텐서(Contiguous tensor)**는 데이터를 단일 행 우선(row-major) 메모리 레이아웃으로 저장합니다.
+- 많은 연산(특히 `x[:, ::2]`와 같은 슬라이싱, `transpose`, `permute`)은 종종 **비연속적(non-contiguous)** 텐서를 생성합니다 (복사는 하지 않으나 스트라이드(stride)가 달라짐).
+- `view(...)`는 **복사를 수행하지 않지만(zero-copy)**, 일반적으로 **연속적인** 메모리를 요구하므로 오류가 발생할 수 있습니다.
+- `reshape(...)`는 뷰(view)를 반환하려고 시도하지만, 텐서가 비연속적인 경우 메모리를 **할당하고 복사**합니다.
+- `contiguous()`는 텐서가 연속적이지 않을 때 연속적인 복사본을 강제로 생성합니다.
+
+차원 순서를 변경한 후 뷰(view)가 *필요한* 경우: 먼저 `x = x.contiguous()`를 호출하십시오 (이로 인해 연속적인 복사본이 생성됩니다).
+
+```python
+def reshape_tensor(x: torch.Tensor, new_shape: Sequence[int]) -> torch.Tensor:
+    """텐서의 형상을 new_shape으로 변경합니다 (뷰 또는 복사본을 반환할 수 있음)."""
+    # TODO: 구현하기
+    raise NotImplementedError
+
+x = torch.arange(6)
+y = reshape_tensor(x, (2, 3))
+```
+
+```python
+def view_tensor(x: torch.Tensor, new_shape: Sequence[int]) -> torch.Tensor:
+    """텐서를 new_shape 형태로 뷰(view)합니다 (연속된 메모리가 필요하며, 텐서 데이터에 대한 새로운 메모리를 할당하지 않습니다)."""
+    # TODO: 구현하기
+    raise NotImplementedError
+
+y_view = view_tensor(x, (2, 3))
+```
+
+```python
+def flatten_from_dim(x: torch.Tensor, start_dim: int = 0) -> torch.Tensor:
+    """start_dim부터 시작하여 텐서를 단일 차원으로 평탄화(flatten)합니다."""
+    # TODO: 구현하기
+    raise NotImplementedError
+
+x2 = torch.randn(2, 3, 4)
+flat = flatten_from_dim(x2, start_dim=1)
+```
+
+```python
+def add_singleton_dim(x: torch.Tensor, dim: int) -> torch.Tensor:
+    """dim 위치에 크기가 1인 차원을 삽입합니다."""
+    # TODO: 구현하기
+    raise NotImplementedError
+
+x3 = torch.randn(5, 7)
+x3s = add_singleton_dim(x3, dim=1)
+```
+
+```python
+def remove_singleton_dims(x: torch.Tensor, dim: int | None = None) -> torch.Tensor:
+    """크기가 1인 차원을 제거합니다."""
+    # TODO: 구현하기
+    raise NotImplementedError
+
+x4 = torch.randn(2, 1, 3)
+x4s = remove_singleton_dims(x4)
+```
+
+```python
+def transpose_last_two(x: torch.Tensor) -> torch.Tensor:
+    """x의 마지막 두 차원을 서로 바꿉니다."""
+    # TODO: 구현하기
+    raise NotImplementedError
+
+x6 = torch.randn(2, 3, 4)
+x6t = transpose_last_two(x6)
+```
+
+```python
+def permute_bhwc_to_bchw(x: torch.Tensor) -> torch.Tensor:
+    """(B, H, W, C) 텐서를 (B, C, H, W)로 변환합니다."""
+    # TODO: 구현하기
+    raise NotImplementedError
+
+x7 = torch.randn(8, 32, 32, 3)
+x7p = permute_bhwc_to_bchw(x7)
+```
+
+```python
+def make_contiguous(x: torch.Tensor) -> torch.Tensor:
+    """텐서가 인접(contiguous)해 있는지 확인하고, 그렇지 않다면 인접하게 만듭니다."""
+    # TODO: 구현하기
+    raise NotImplementedError
+
+x8 = torch.randn(4, 6)[:, ::2]
+x8c = make_contiguous(x8)
+```
+
+## 인덱싱 (Indexing)
+텐서를 생성하고 조작하는 방법을 배웠으므로, 이제 인덱싱을 사용하여 텐서에서 특정 구성 요소를 추출하는 방법을 이해해야 합니다.
+- 기본 슬라이싱(`x[a:b]`)은 가능한 경우 뷰(view)를 반환합니다.
+- "팬시(Fancy)" 인덱싱(인덱스의 리스트 또는 텐서 사용)은 보통 새로운 텐서를 할당합니다.
+- 인플레이스(In-place, 제자리) 연산과 아웃오브플레이스(Out-of-place) 연산의 구분은 중요합니다. 함수 설명에 "복사본을 반환하고 입력은 변경하지 않은 채로 둘 것"이라고 되어 있다면 `clone()`이 필요합니다.
+
+```python
+def slice_rows(x: torch.Tensor, start: int, end: int) -> torch.Tensor:
+    """2D 텐서의 행 슬라이싱: x[start:end, :]."""
+    # TODO: 구현하기
+    raise NotImplementedError
+
+x = torch.arange(12).reshape(4, 3)
+rows = slice_rows(x, 1, 3)
+```
+
+```python
+def select_columns(x: torch.Tensor, cols: Sequence[int]) -> torch.Tensor:
+    """2D 텐서에서 특정 열을 선택합니다."""
+    # TODO: 구현하기
+    raise NotImplementedError
+
+cols = select_columns(x, [0, 2])
+```
+
+```python
+def get_diagonal(x: torch.Tensor) -> torch.Tensor:
+    """2D 텐서의 대각 성분을 가져옵니다."""
+    # TODO: 구현하기
+    raise NotImplementedError
+
+d = get_diagonal(torch.tensor([[1, 2], [3, 4]]))
+```
+
+```python
+def set_subtensor(x: torch.Tensor, row_idx: int, col_idx: int, value: float) -> torch.Tensor:
+    """x[row_idx, col_idx]가 value로 설정된 x의 복사본을 반환합니다."""
+    # TODO: 구현하기
+    raise NotImplementedError
+
+base = torch.zeros(2, 2)
+out = set_subtensor(base, 0, 1, 5.0)
+```
+
+```python
+def gather_rows(x: torch.Tensor, row_indices: torch.Tensor) -> torch.Tensor:
+    """row_indices를 사용하여 x에서 행들을 수집(concat)합니다."""
+    # TODO: 구현하기
+    raise NotImplementedError
+
+x2 = torch.tensor([[10, 11], [20, 21], [30, 31]])
+idx = torch.tensor([2, 0])
+gathered = gather_rows(x2, idx)
+```
+
+## 브로드캐스팅과 축소 (Broadcasting and reducing)
+이제 Python 루프를 사용하지 않고 원소별(elementwise) 연산을 적용할 수 있게 해주는 PyTorch 메커니즘을 살펴보겠습니다. 복잡한 시스템에서 텐서의 형태를 추적하려면 이 메커니즘이 어떻게 작동하는지 이해하는 것이 중요합니다. 알아두어야 할 브로드캐스팅(Broadcasting) 규칙은 다음과 같습니다:
+- 차원은 **오른쪽**부터 정렬됩니다.
+- 두 차원의 크기가 같거나, 둘 중 하나의 크기가 **1**인 경우 브로드캐스팅이 가능합니다.
+
+### 축소 연산과 `keepdim`
+
+특정 차원에 대해 축소 연산(예: `sum`, `mean`, `max`)을 수행할 때, PyTorch는 다음 중 하나를 수행할 수 있습니다:
+
+- 축소된 차원을 **제거**합니다 (`keepdim=False`, 기본값).
+- 해당 차원의 크기를 1로 **유지**합니다 (`keepdim=True`).
+
+차원을 유지하는 것은 이후 브로드캐스팅을 다시 적용할 때 "자연스럽게 작동"하도록 만들기 때문에 종종 유용합니다.
+
+#### 형태 다이어그램 예시
+
+`x`의 형태가 `(B, T, D)`라고 가정합니다:
+
+**시간(time) 축에 대한 합산**
+- `x.sum(dim=1)` → 형태 `(B, D)`
+- `x.sum(dim=1, keepdim=True)` → 형태 `(B, 1, D)`
+
+**특징량(feature) 축에 대한 평균**
+- `x.mean(dim=2)` → 형태 `(B, T)`
+- `x.mean(dim=2, keepdim=True)` → 형태 `(B, T, 1)`
+
+#### `keepdim=True`가 브로드캐스팅에 도움이 되는 이유
+
+예시: `x`에서 `T` 축에 대한 평균을 빼서 중심화(center)하기
+
+- `m = x.mean(dim=1)`의 형태가 `(B, D)`인 경우, `x - m`은 **실패**합니다 (형태 `(B, T, D)`와 `(B, D)`가 정렬되지 않음).
+- `m = x.mean(dim=1, keepdim=True)`의 형태가 `(B, 1, D)`인 경우, `x - m`은 브로드캐스팅을 통해 **정상 작동**합니다.
+
+```python
+def sum_over_dim(x: torch.Tensor, dim: int, keepdim: bool = False) -> torch.Tensor:
+    """차원 dim을 따라 텐서 값들을 합산합니다."""
+    # TODO: 구현하기
+    raise NotImplementedError
+
+x = torch.ones(2, 3)
+y = sum_over_dim(x, dim=1)
+```
+
+```python
+def mean_over_dim(x: torch.Tensor, dim: int, keepdim: bool = False) -> torch.Tensor:
+    """차원 dim을 따른 평균."""
+    # TODO: 구현하기
+    raise NotImplementedError
+
+x2 = torch.tensor([[1.0, 2.0], [3.0, 4.0]])
+y2 = mean_over_dim(x2, dim=0)
+```
+
+```python
+def max_over_dim(x: torch.Tensor, dim: int) -> tuple[torch.Tensor, torch.Tensor]:
+    """차원 dim을 따른 최댓값과 argmax 인덱스."""
+    # TODO: 구현하기
+    raise NotImplementedError
+
+x3 = torch.tensor([[1.0, 5.0], [3.0, 2.0]])
+values, idx = max_over_dim(x3, dim=1)
+```
+
+```python
+def argmax_over_dim(x: torch.Tensor, dim: int) -> torch.Tensor:
+    """dim 차원을 따른 argmax 인덱스."""
+    # TODO: 구현하기
+    raise NotImplementedError
+
+idx2 = argmax_over_dim(x3, dim=1)
+```
+
+```python
+def broadcast_add_vector(x: torch.Tensor, v: torch.Tensor) -> torch.Tensor:
+    """브로드캐스팅을 사용하여 2D 텐서 x의 각 행에 벡터 v를 더합니다."""
+    # TODO: 구현하기
+    raise NotImplementedError
+
+x4 = torch.zeros(3, 2)
+v = torch.tensor([10.0, 20.0])
+y4 = broadcast_add_vector(x4, v)
+```
+
+## 벡터화 (Vectorization)
+우리는 (반복당 오버헤드로 인해) 느린 Python 루프의 사용을 최대한 피하고자 하며, PyTorch는 이를 피할 수 있는 많은 도구를 제공합니다. 여기서는 다음과 같은 기초를 다룹니다:
+- `cat` 대 `stack` (기존 차원을 연결할 것인가, 새로운 차원을 생성할 것인가)
+- `repeat` 대 `expand`
+- 누적 연산을 위한 `scatter_add` / `index_add`
+- 조건부 선택을 위한 `where`
+
+### `expand` 대 `repeat`
+
+- `repeat(...)`은 데이터를 **복사**하여 독립적인 저장 공간을 가진 더 큰 텐서를 만듭니다.
+- `expand(...)`는 데이터를 **복사하지 않고**, 영리한 스트라이드(stride)를 사용하여 *뷰(view)*를 생성합니다.
+
+이는 두 가지 중요한 시사점을 가집니다:
+
+1) `expand`는 **크기가 1인 차원**을 확장할 때만 작동합니다 (싱글톤(singleton) 브로드캐스팅).
+2) 확장된 텐서는 **동일한 메모리 주소를 가리키는 여러 위치**를 가질 수 있습니다.  
+   따라서 확장된 텐서를 수정하면 예상치 못한 결과(여러 행이 동시에 변경됨)가 발생할 수 있습니다.
+
+경험 법칙(Rule of thumb):
+- 읽기 전용 브로드캐스팅에는 `expand`를 사용하세요.
+- 독립적인 복사본이 실제로 필요한 경우에는 `repeat`을 사용하세요.
+
+
+참고: 지금부터는 함수를 호출하고 출력을 확인하기 위해 직접 간단한 테스트 코드를 작성하여 검증해 보시기 바랍니다. 이전과 마찬가지로 각 함수의 TODO 부분을 채워 넣어야 합니다.
+
+```python
+def concat_tensors(tensors: Sequence[torch.Tensor], dim: int = 0) -> torch.Tensor:
+    """dim을 따라 텐서들을 결합합니다. NOTE: 이 작업은 항상 새로운 메모리를 할당합니다."""
+    # TODO: 구현하기
+    raise NotImplementedError
+```
+
+```python
+def stack_tensors(tensors: Sequence[torch.Tensor], dim: int = 0) -> torch.Tensor:
+    """새로운 차원 dim을 따라 텐서들을 쌓습니다."""
+    # TODO: 구현하기
+    raise NotImplementedError
+```
+
+```python
+def repeat_tensor(x: torch.Tensor, repeats: Sequence[int]) -> torch.Tensor:
+    """각 차원을 따라 텐서를 반복합니다."""
+    # TODO: 구현하기
+    raise NotImplementedError
+```
+
+```python
+def expand_tensor(x: torch.Tensor, *sizes: int) -> torch.Tensor:
+    """데이터를 복사하지 않고 텐서를 더 큰 크기로 확장합니다.(기존 차원을 유지하려면 크기를 -1로 지정할 수 있습니다.)"""
+    # TODO: 구현하기
+    raise NotImplementedError
+```
+
+```python
+def cumsum_over_dim(x: torch.Tensor, dim: int = 0) -> torch.Tensor:
+    """dim 방향으로의 누적 합."""
+    # TODO: 구현하기
+    raise NotImplementedError
+```
+
+```python
+def where_select(mask: torch.Tensor, a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
+    """원소별 선택: mask가 True인 곳은 a를, 그렇지 않은 곳은 b를 반환합니다. mask는 a 및 b와 브로드캐스팅이 가능해야 합니다."""
+    # TODO: 구현하기
+    raise NotImplementedError
+```
+
+```python
+def one_hot(indices: torch.Tensor, num_classes: int, dtype: torch.dtype | None = None) -> torch.Tensor:
+    """
+    원-핫 인코딩을 생성합니다.
+    출력은 indices와 동일한 형태(shape)에 마지막 차원으로 num_classes 크기가 추가된 텐서이며,
+    해당 차원을 따라 인덱스와 일치하면 1, 그렇지 않으면 0의 값을 가집니다.
+
+    Shapes:
+    - indices: (...,) 정수형 텐서
+    Return:
+    - out: (..., num_classes)
+
+    제한사항:
+    - 임의의 앞선 형태(leading shape)에 대해서도 동작해야 합니다.
+    - Python 루프를 사용하지 마십시오.
+    
+    """
+    # TODO: 구현하기
+    raise NotImplementedError
+```
+
+```python
+def scatter_add_1d(
+    values: torch.Tensor, indices: torch.Tensor, size: int
+) -> torch.Tensor:
+    """
+    `indices` 위치의 출력 벡터에 `values`를 더합니다.
+
+    Shapes:
+    - values: (N,)
+    - indices: [0, size) 범위의 (N,) 정수 인덱스
+    Return:
+    - out: values와 동일한 dtype 및 device를 가진 (size,)
+
+    Requirement:
+    - Python 루프 사용 금지
+    
+    """
+    # TODO: 구현하기
+    raise NotImplementedError
+```
+
+```python
+def batched_token_histogram(tokens: torch.Tensor, vocab_size: int) -> torch.Tensor:
+    """
+    배치 아이템별 토큰 출현 횟수를 카운트합니다.
+
+    Shapes:
+    - tokens: (B, T) int64
+    Return:
+    - counts: (B, vocab_size) 이며, 여기서 counts[b, v] = tokens[b]에서 토큰 v가 나타나는 횟수 
+
+    Requirements:
+    - B 또는 T에 대한 Python 루프(loop)를 사용하지 마십시오.
+    
+    """
+    # TODO: 구현하기
+    raise NotImplementedError
+```
+
+```python
+def masked_mean(x: torch.Tensor, mask: torch.Tensor, dim: int) -> torch.Tensor:
+    """
+    mask==True인 엔트리만 고려하여 `dim`에 대한 평균을 계산합니다.
+
+    규칙:
+    - mask: x로 브로드캐스팅 가능한 bool 텐서
+    - mask==True는 "이 엔트리를 유지함"을 의미
+
+    반환: x.mean(dim=dim)과 동일한 형상(shape)
+
+    요구사항:
+    - 0으로 나누기 방지: `dim`을 따라 모든 mask가 False인 경우, 평균을 0으로 정의합니다.
+    
+    """
+    # TODO: 구현하기
+    raise NotImplementedError
+```
+
+## Einsum 웜업
+이제 형태와 브로드캐스팅에 익숙해졌으므로, 축의 이름을 명시적으로 지정하고 반복되는 인덱스를 합산하여 텐서 연산을 간결하게 표현하는 방법인 `torch.einsum`을 소개합니다.
+
+### 핵심 개념
+각 입력 텐서의 차원에 문자를 부여하여 다음과 같이 설명합니다.
+- `x: (B, T, D)` → `"btd"`
+- `W: (D, H)`    → `"dh"`
+
+그 다음, einsum에 원하는 출력 레이블을 알려줍니다:
+- `"btd,dh->bth"`
+
+### Einsum의 규칙
+1) **동일한 문자 = 동일한 축** (브로드캐스팅 가능한 크기 1을 제외하고 크기가 일치해야 함).
+2) **반복되는 문자는 합산(sum)됩니다** (이를 "축약(contraction)"이라 함).
+3) **출력에 나타나는 문자는 유지됩니다** (지정된 순서대로).
+4) 출력 레이블의 순서를 바꾸는 것만으로 **축의 순서를 변경(reorder)**할 수 있습니다.
+
+### 요약 치트 시트 (Cheat sheet)
+- 특정 축에 대한 합산: `"btd->bt"` (`d` 축에 대해 합산)
+- 전치 (Transpose): `"ij->ji"`
+- 내적 (Dot product): `"d,d->"` 또는 배치 내적 `"btd,btd->bt"`
+- 행렬 곱셈 (Matrix multiply): `"ik,kj->ij"`
+- 배치 행렬 곱셈 (Batched matmul): `"bij,bjk->bik"`
+- 외적 (Outer product): `"i,j->ij"`
+
+### Einsum 식을 도출하는 방법 (권장 워크플로우)
+1) 명명된 축을 사용하여 형태를 적습니다 (예: `q: b h t d`, `k: b h s d`).
+2) 어떤 축을 **합산(sum over)**할지 결정합니다 (두 입력 모두에서 해당 축에 동일한 문자를 부여).
+3) 출력에서 어떤 축을 **유지(keep)**할지 결정합니다 (`->` 뒤에 해당 문자들을 적음).
+
+이 섹션에서는 einsum을 사용하여 어텐션(attention) 메커니즘에 등장하는 다음과 같은 빌딩 블록들을 구현합니다:
+- 선형 투영 (Linear projection) (`x @ W`)
+- 내적 (Dot products)
+- 어텐션 점수 행렬 (Attention score matrices) (`QKᵀ`)
+- 어텐션 가중치 적용 (`softmax(scores) @ V`)
+
+참고: 이 실습에서는 `matmul`이 아닌 `torch.einsum`을 사용해 보세요. 현 단계에서 어텐션 메커니즘을 완전히 이해하지 못하더라도 실습 문제를 해결할 수 있습니다. 그러나 이번 실습에서의 구현 방식을 기억해 두면 향후 구현에 큰 도움이 될 것입니다.
+
+```python
+def einsum_linear_btd_dh_to_bth(x: torch.Tensor, W: torch.Tensor) -> torch.Tensor:
+    """
+    einsum을 사용한 선형 투영(Linear projection).
+
+    Shapes:
+    - x: (B, T, D)
+    - W: (D, H)
+    Return:
+    - y: (B, T, H)
+    
+    """
+    # TODO: 구현하기
+    raise NotImplementedError
+```
+
+```python
+def einsum_pairwise_dot(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+    """
+    x와 y 사이의 요소별(pairwise) 내적.
+
+    Shapes:
+    - x: (B, T, D)
+    - y: (B, T, D)
+    Return:
+    - dots: (B, T) (여기서 dots[b,t] = dot(x[b,t], y[b,t]))
+    
+    """
+    # TODO: 구현
+    raise NotImplementedError
+```
+
+```python
+def einsum_qk_scores(q: torch.Tensor, k: torch.Tensor) -> torch.Tensor:
+    """
+    einsum을 사용하여 어텐션 스코어 QK^T를 계산합니다.
+
+    Shapes:
+    - q: (B, H, T, Dh)
+    - k: (B, H, T, Dh)
+    반환값:
+    - scores: (B, H, T, T) (여기서 scores[b,h,i,j] = dot(q[b,h,i], k[b,h,j]))
+    
+    """
+    # TODO: 구현하기
+    raise NotImplementedError
+```
+
+```python
+def einsum_apply_attention(weights: torch.Tensor, v: torch.Tensor) -> torch.Tensor:
+    """
+    einsum을 사용하여 value에 어텐션 가중치를 적용합니다.
+
+    Shapes:
+    - weights: (B, H, T, T)
+    - v:       (B, H, T, Dh)
+    Return:
+    - out:     (B, H, T, Dh) (여기서 out[b,h,i] = sum_j weights[b,h,i,j] * v[b,h,j])
+    
+    """
+    # TODO: 구현하기
+    raise NotImplementedError
+```
+
+## 어텐션 기초 (Attention Fundamentals)
+이 실습에서는 코스 전반에 걸쳐 광범위하게 접하게 될 어텐션(Attention) 메커니즘의 몇 가지 빌딩 블록을 소개합니다. 실습을 구현하기 위해 이 메커니즘을 아직 완전히 이해할 필요는 없습니다. 다만, 향후를 위해 이러한 빌딩 블록들을 기억해 두는 것이 좋습니다.
+
+실습을 완료하려면 다음 주제들에 대해 친숙해져야 합니다:
+- 안정적인 소프트맥스(Stable softmax) 읽기 자료: https://jaykmody.com/blog/stable-softmax/
+- 마스킹(Masking): 일반적으로 소프트맥스를 적용하기 *전에* 마스킹된 로짓(logit) 값을 -inf로 설정하는 것을 의미합니다.
+- 어텐션의 경우: 인과적 마스크(causal mask)는 상삼각 행렬(upper-triangular matrix) 형태를 가집니다 (미래의 시점에 어텐션을 주지 않음).
+
+```python
+def stable_softmax(x: torch.Tensor, dim: int = -1) -> torch.Tensor:
+    """
+    `dim` 방향으로 수치적으로 안정적인 softmax.
+
+    요구사항:
+    - x의 값이 크더라도 오버플로우가 발생하지 않아야 함.
+    - `dim` 방향으로 출력의 합이 1이 되어야 함.
+    
+    """
+    # TODO: 구현하기
+    raise NotImplementedError
+```
+
+```python
+def masked_fill_tensor(x: torch.Tensor, mask: torch.Tensor, value: float) -> torch.Tensor:
+    """
+    mask == True인 위치가 `value`로 대체된 x의 복사본을 반환합니다.
+    
+    요구사항:
+    - mask는 x에 브로드캐스팅이 가능해야 합니다.
+    - x를 인플레이스(in-place)로 수정하지 마세요.
+    
+    """
+    # TODO: 구현하기
+    raise NotImplementedError
+```
+
+```python
+def masked_softmax(x: torch.Tensor, mask: torch.Tensor, dim: int = -1) -> torch.Tensor:
+    """
+    불리언 mask를 적용한 x의 Softmax.
+
+    규칙:
+    - mask == True는 "유효하지 않으며 확률 0을 받아야 함"을 의미합니다.
+    - softmax 전에 마스킹을 수행합니다 (즉, 유효하지 않은 로짓을 큰 음수 값으로 설정).
+
+    요구사항:
+    - 수치적으로 안정적이어야 합니다.
+    - mask==True인 위치의 출력은 정확히 0이어야 합니다.
+    - 특정 `dim`을 따라 모든 항목이 마스킹된 경우, 해당 `dim`을 따라 모두 0을 반환합니다.
+    - 위에서 구현한 함수들을 재사용할 수 있습니다.
+    
+    """
+    # TODO: masked_fill_tensor + stable_softmax를 사용하여 구현
+    raise NotImplementedError
+```
+
+```python
+def make_causal_mask(T: int, device: torch.device | str | None = None) -> torch.Tensor:
+    """
+    (T, T) 형상의 인과적(미래 마스킹) 불리언 마스크를 생성합니다.
+
+    규칙:
+    - mask[i, j] == True  => (i가 j를 참조하는) 위치가 허용되지 않음 (j가 미래에 있음)
+    - mask[i, j] == False => 허용됨
+
+    따라서 이는 대각선 위의 상삼각 마스크입니다.
+
+    반환값:
+    - mask: 지정된 디바이스의 불리언 텐서
+
+    예시 (T=4):
+        [[F, T, T, T],
+         [F, F, T, T],
+         [F, F, F, T],
+         [F, F, F, F]]
+    
+    """
+    # TODO: 구현하기
+    raise NotImplementedError
+```
+
+```python
+def apply_causal_mask(attn_logits: torch.Tensor, value: float = -1e9) -> torch.Tensor:
+    """
+    어텐션 로짓에 인과적 마스크(causal mask)를 적용합니다.
+
+    예상 Shape:
+    - attn_logits: (..., T, T)
+
+    반환값:
+    - 마스킹된 위치가 `value`로 설정된 마스킹된 로짓 (동일한 shape)
+
+    참고 사항:
+    - 마지막 두 차원에 대해 인과적 마스크를 생성합니다.
+    - 앞선 차원들에 대해 브로드캐스트합니다.
+    - 위에서 선언한 함수들을 재사용할 수 있습니다.
+    
+    """
+    # TODO: make_causal_mask + masked_fill_tensor를 사용하여 구현
+    raise NotImplementedError
+```
+
