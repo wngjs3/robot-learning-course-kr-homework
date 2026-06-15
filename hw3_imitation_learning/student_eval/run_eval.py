@@ -1,5 +1,5 @@
 # !/usr/bin/env python3
-"""HW3 과제 1–3을 위한 학생용 평가 스크립트.
+"""HW3 실습 1-3을 위한 로컬 평가 스크립트.
 
 사용법
 -----
@@ -15,10 +15,10 @@
   1. ``./model.py``에서 모델 정의 로드
   2. 체크포인트에서 학습된 가중치 로드
   3. 100회의 헤드리스 시뮬레이션 에피소드 실행 (seed=42)
-  4. 성공률 및 점수 출력
+  4. 성공률 및 요약 지표 출력
   5. 서명된 ``ex{N}_result.hwresult`` 파일 생성
 
-생성된 ``.hwresult`` 파일을 Gradescope에 업로드하십시오.
+생성된 ``.hwresult`` 파일은 자기 점검용 결과 기록으로 보관할 수 있습니다.
 """
 
 from __future__ import annotations
@@ -69,7 +69,7 @@ def main() -> None:
         "--seed",
         type=int,
         default=42,
-        help="Random seed (default: 42). Do NOT change for official submission.",
+        help="Random seed (default: 42). Keep fixed when comparing runs.",
     )
     parser.add_argument(
         "--quiet",

@@ -1,8 +1,9 @@
 # 과제 (한국어판)
 
 ETH Zurich **Robot Learning: From Fundamentals to Foundation Models** (2026 봄, Oier Mees) 강의의
-공식 과제를 한국어로 번역한 것입니다. 원저자의 허락을 받아 제공되며, 코드는 원본 그대로이고
-README와 노트북의 설명만 한국어로 번역되었습니다 (원문은 `*.en.bak` 파일로 보존).
+공식 과제를 한국어로 번역하고, 혼자 공부하기 쉽도록 수업 운영 관련 안내를 정리한 버전입니다.
+원저자의 허락을 받아 제공되며, 코드는 원본 구조를 유지하되 README와 노트북 설명을 한국어로 옮겼습니다.
+영어 원문은 각 표의 원본 링크에서 확인할 수 있습니다.
 
 | 과제 | 주제 | 원본 |
 |---|---|---|
@@ -12,5 +13,6 @@ README와 노트북의 설명만 한국어로 번역되었습니다 (원문은 `
 | [hw4_reinforcement_learning](hw4_reinforcement_learning/) | 강화 학습 | [원본 링크](https://github.com/mees-robot-learning-course/ethz-course-2026/tree/main/hw4_reinforcement_learning) |
 
 코드 주석과 노트북 설명도 한국어로 번역되어 있어 한국 학습자가 바로 읽고 실습할 수 있습니다.
+이 저장소는 자기주도 학습용이므로, 강의 수강생을 대상으로 한 운영 안내는 따르지 않아도 됩니다.
 
 원저작물 © Oier Mees & ETH Zurich — [공식 저장소](https://github.com/mees-robot-learning-course/ethz-course-2026)
